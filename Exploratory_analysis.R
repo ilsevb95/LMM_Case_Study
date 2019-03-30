@@ -71,7 +71,7 @@ write.table(df_freq, file = paste("Data/Frequency_Group_Time_Departm_",Sys.Date(
                                   sep = ""), row.names=FALSE, na = "", 
             col.names=T, sep=",")
 
-write.table(df_freq2, file = paste("Data/Frequencly_Group_Time_",Sys.Date(),".csv", 
+write.table(df_freq2, file = paste("Data/Frequency_Group_Time_",Sys.Date(),".csv", 
                                   sep = ""), row.names=FALSE, na = "", 
             col.names=T, sep=",")
 
