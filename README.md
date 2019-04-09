@@ -17,4 +17,11 @@ Subfolders and description:
 
 A few tips Bas gave for the analysis:
 
-Random effects: ... (I haven't updated this yet)
+Random effects: Pens and Chickens
+Fixed effects: departments, time, groups (=2 treatments)
+Response: weight development over time
+
+The pens are nested in the departments. And the chickens are nested in the pens. There are roughly 3-4 chickens per pen.
+
+Start the analysis with a a classical LMM. Later use a random intercept/slope model (equality of variance needed?)
+There are a few missing datapoints, but you can just assume they are missing completely at random (no need for a missing data mechanism)
