@@ -18,7 +18,9 @@ Subfolders and description:
 A few tips Bas gave for the analysis:
 
 Random effects: Pens and Chickens
+
 Fixed effects: departments, time, groups (=2 treatments)
+
 Response: weight development over time
 
 The pens are nested in the departments. And the chickens are nested in the pens. There are roughly 3-4 chickens per pen.
