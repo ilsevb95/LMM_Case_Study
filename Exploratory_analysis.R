@@ -62,8 +62,26 @@ df_summ = data.frame(ddply(df_summ, c("Group", "variable"), summarise,
                                  N = length(value)))
 
 
+df_summ2 = dplyr::select(data, ID, Weight_change, Group, Time)
+df_summ2 = melt(data = df_summ2, id.vars=c("ID", "Group", "Time"))
+
+
+df_summ2 = data.frame(ddply(df_summ2, c("Group", 'Time', "variable"), summarise,
+                           Mean = round(mean(value), digits = 2),
+                           SD = round(sd(value), digits = 2),
+                           SEM = round(sd(value)/sqrt(length(value)), digits = 2),
+                           LowerQuantile = round(quantile(value, probs = 0.025), 
+                                                 digits=2),
+                           UpperQuantile = round(quantile(value, probs = 0.975), 
+                                                 digits = 2),
+                           N = length(value)))
+
 #### Save files and plots ####
 write.table(df_summ, file = paste("Data/Summary_statistics_",Sys.Date(),".csv", 
+                                  sep = ""), row.names=FALSE, na = "", 
+            col.names=T, sep=",")
+
+write.table(df_summ2, file = paste("Data/Summary_statisticsV2.0_",Sys.Date(),".csv", 
                                   sep = ""), row.names=FALSE, na = "", 
             col.names=T, sep=",")
 
