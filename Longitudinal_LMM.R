@@ -50,7 +50,7 @@ summary(lmm_min)
 #### Intermediate models ####
 # Add department
 # Add interaction Time and groups
-lmm_int <- lme(Weight_change ~ Time + Group + Department, 
+lmm_int <- lme(Weight_change ~ Time + Group + Department_factor, 
                random = ~1|ID, method = "ML",data = data)
 summary(lmm_int)
 
@@ -64,7 +64,7 @@ anova(lmm_min, lmm_int)
 anova(lmm_min, lmm_int2)
 
 #### Maximum model ####
-lmm_max <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                 random = ~1|ID, method = "ML",data = data)
 summary(lmm_max)
 
@@ -93,7 +93,7 @@ data <- data %>%
 pd <- position_dodge(0.6)
 
 ggplot2::ggplot(data = data, aes(x = Time, y = Norm_resid_max)) + 
-  geom_point(position = pd, aes(col = Department), size = 4) + 
+  geom_point(position = pd, aes(col = Department_factor), size = 4) + 
   ylab("Normalized residuals") + 
   facet_grid(~Group)
 
@@ -127,13 +127,16 @@ data[c(24,529),]
 
 #### Adding random effects ####
 ### Random intercept only ####
-lmm_max_r1 <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+# Note: method = REML
+lmm_max_r1 <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                random = ~1|ID, 
                method = "REML",data = data)
 summary(lmm_max_r1)
 
 
-
+getVarCov(lmm_max_r1, individual = 20, type = "conditional")
+getVarCov(lmm_max_r1, individual = 20, type = "marginal")
+getVarCov(lmm_max_r1)
 
 #### Random intercept and slope together ####
 # Adding random intercept and slope together is not possible
@@ -141,10 +144,10 @@ summary(lmm_max_r1)
 # Error: number of observations (=809) <= number of random effects (=810) for 
 # term (Time | ID); the random-effects parameters and the residual variance 
 # (or scale parameter) are probably unidentifiable
-lmm_max_r2.1 <- nlme::lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_r2.1 <- nlme::lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                   random = ~1+Time|ID, method = "REML",data = data)
 
-lmm_max_r2.2 <- lme4::lmer(Weight_change ~ Time + Group + Department + Time:Group + 
+lmm_max_r2.2 <- lme4::lmer(Weight_change ~ Time + Group + Department_factor + Time:Group + 
                              (1+Time|ID), data = data, REML = T)
 summary(lmm_max_r2.2)
 
@@ -153,7 +156,7 @@ summary(lmm_max_r2.2)
 # Random intercept and slope -> they are added independently
 # We then assume different levels of hierarchy. One level for measurements within ID
 # Other level of dependence at the level of Pens
-lmm_max_r2.3 <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_r2.3 <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                   random = list(ID = pdDiag(form = ~ 1),
                                 Time = pdDiag(form = ~ 1)), 
                                 method = "REML",data = data)
@@ -162,14 +165,14 @@ summary(lmm_max_r2.3)
 
 #### Only random slope model ####
 # No convergence either
-lmm_max_r2.4 <- nlme::lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_r2.4 <- nlme::lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                           random = ~Time|ID, method = "REML",data = data)
 
 
 #### Random intercept and Pens ####
 # We then assume different levels of hierarchy. One level for measurements within ID
 # Other level of dependence at the level of Pens
-lmm_max_r2.5 <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_r2.5 <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                     random = list(ID = pdDiag(form = ~ 1),
                                   Pen = pdDiag(form = ~ 1)), 
                     method = "REML",data = data)
@@ -186,14 +189,14 @@ anova(lmm_max_r1, lmm_max_r2.5)
 # We continue with the random intercept only model: lmm_max_r1
 
 # First have a look at the covar-var matrix
-getVarCov(lmm_max_r1, individual = 20, type = "conditional")
-getVarCov(lmm_max_r1, individual = 20, type = "marginal")
-getVarCov(lmm_max_r1, individual = 20)
+getVarCov(lmm_max_r1, individual = 20, type = "conditional") # random effect modl
+getVarCov(lmm_max_r1, individual = 20, type = "marginal") # marginal model
+getVarCov(lmm_max_r1, individual = 20) # explained var of random intercept
 
 
 ##### General: unstructured correlation #
 # Doesn't work -> no convergence
-lmm_max_unstr <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_unstr <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                   random = ~1|ID, 
                   correlation = corSymm(form = ~ 1 | ID),
                   method = "REML",data = data)
@@ -204,7 +207,7 @@ summary(lmm_max_unstr)
 
 ##### Compound symmetry correlation #
 # same correlation and var over all timepoints
-lmm_max_cs <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_cs <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
                      correlation = corCompSymm(form = ~ 1 | ID),
@@ -214,10 +217,10 @@ summary(lmm_max_cs)
 
 
 ##### ARMA correlation #
-lmm_max_arma <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_arma <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
-                     correlation = corARMA(form = ~ 1 | ID, p = 1, q = 2),
+                     correlation = corARMA(form = ~ 1 | ID, p = 4, q = 1),
                      data = data)
 
 summary(lmm_max_arma)
@@ -225,7 +228,7 @@ summary(lmm_max_arma)
 
 ##### AR1 correlation #
 # Pairwse Correlations decrease with time -> most likely for a clinical trial
-lmm_max_ar <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+lmm_max_ar <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
                      correlation = corAR1(form = ~ 1 | ID),
@@ -237,46 +240,68 @@ summary(lmm_max_ar)
 # Compare different correlation structures with the LRT
 anova(lmm_max_cs, lmm_max_ar, lmm_max_arma, lmm_max_r1)
 anova(lmm_max_r1, lmm_max_cs)
+anova(lmm_max_r1, lmm_max_arma)
+anova(lmm_max_r1, lmm_max_ar)
 anova(lmm_max_arma, lmm_max_r1)
-anova(lmm_max_ar, lmm_max_r1)
-
 
 LRT <- 2*(logLik(lmm_max_arma) - logLik(lmm_max_r1))
 pchisq(LRT, 3,lower.tail = T)
 
+getVarCov(lmm_max_arma, individuals = 2, type = "conditional")
+getVarCov(lmm_max_r1, individuals = 2, type = "conditional")
 
 
+
+#### Checking dependence ####
+lmm_gls_cs <- gls(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+                  method = "REML", 
+                  correlation = corCompSymm(form = ~ 1 | ID),
+                  data = data)
+
+summary(lmm_gls_cs)
+
+lmm_gls <- gls(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+                  method = "REML", 
+                  correlation = NULL,
+                  data = data)
+
+summary(lmm_gls)
+
+# No significant effect of the correlation structure
+# Conclusion: no dependence of data?
+anova(lmm_gls, lmm_gls_cs)
+getVarCov(lmm_gls_cs, type = "marginal")
 
 #### Adding weights ####
 # Continue with the unstructed correlation model
-# Not possible -> no convergence
-lmm_max_r1_wght <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+# 
+lmm_max_r1_wght <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
-                     weights = varIdent(~ 1|Time),
-                     correlation = corSymm(form = ~ 1 | ID),
+                     weights = varIdent(~ 1|Time), # also not possible with ID
                      data = data)
 
+summary(lmm_max_r1_wght)
 
-
+# Adding weights doesn't improve the model
+anova(lmm_max_r1, lmm_max_r1_wght)
 
 
 #### EMMEANS ####
 # The random intercept model fits best. Next we calculate the estimated marginal means
-# We want to average over the departments and timepoints. 
-# Therefore, these variables needs to be numeric
-data$Time <-  as.numeric(as.character(data$Time))
-data$Department <- as.numeric(as.character(data$Department))
+# We want to average over the departments -> needs to be numeric
 Model_final <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
                   random = ~1|ID, 
+                  
                   method = "REML",data = data)
+summary(Model_final)
 
 
 # Construct reference grid
 refgrid <-  ref_grid(Model_final)
 refgrid
 df_emmeans = data.frame(summary(refgrid))
-#data_emmeans <-  emmeans(refgrid, specs = c('Group', "Time"))
+data_emmeans <-  emmeans(refgrid, specs = c('Group', "Time"))
 
 # Contrast and p-value is calculated between the two groups
 contr <-  contrast(data_emmeans)
@@ -284,9 +309,10 @@ contr <-  contrast(data_emmeans)
 
 
 #### Find model estimates per timepoint ####
-Model_final2 <- lme(Weight_change ~ Time_factor + Group + Department + Time:Group, 
+Model_final2 <- lme(Weight_change ~ Time_factor + Group + Department + Time_factor:Group, 
                   random = ~1|ID, method = "REML",data = data)
 
+summary(Model_final2)
 
 refgrid2 = ref_grid(Model_final2)
 df_emmeans2 = data.frame(summary(refgrid2))
@@ -298,18 +324,20 @@ pd <- position_dodge(0.2)
 
 df_emmeans2$Group <- as.factor(df_emmeans2$Group)
 df_emmeans2$Time <- as.numeric(as.character(df_emmeans2$Time))
-data$Time <- as.numeric(as.character(data$Time))
+df_emmeans2$SD <- df_emmeans2$SE * sqrt(162)
 
-
-# Plot predictions with SE
+# Plot predictions with SD as errorbars
 ggplot2::ggplot(data = df_emmeans2, aes(x = Time, y = prediction)) + 
   geom_line(position = pd, aes(col = Group), size = 2) + 
-  geom_point(position = pd, aes(shape = Group, col = Group), size = 3) + 
-  geom_errorbar(position = pd, aes(ymin = prediction - SE, 
-                                   ymax = prediction + SE, 
-                                   x = Time, col = Group), size = 1, width= 3) +
+  geom_point(position = pd, aes(shape = Group, col = Group), size = 4) + 
+  geom_errorbar(position = pd, aes(ymin = prediction - SD, 
+                                   ymax = prediction + SD, 
+                                   x = Time, col = Group), size = 1, width= 2) +
   scale_color_manual(values = c('blue',  'orange')) +
   ylab("Weight change")
 
+
+
+#### Save result summary plots and tables ####
 
 #################################### End #######################################
