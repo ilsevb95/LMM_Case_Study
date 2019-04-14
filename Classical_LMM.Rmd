@@ -1,0 +1,273 @@
+---
+title: "Classical_LMM"
+author: "Ludovico Lombardo"
+date: "10/4/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## INTRODUCTION 
+
+
+The aim of this case study is to observe the weight change in MAS diseased chickens which is, in fact,  one of the symtoms of chickens affected by this very disease. 
+The underlying idea is to study and compare the weight loss in two groups of chickens. The difference between the two groups is given by two different ways of introducing the disease.
+We would like to have an idea of which is the best way to introduce the disease in order to facilitate more accurate studies regarding the MAS disease. 
+The chickens arehoused in pens which are part of different departments. The data is collected a five different time points, i.e. 3,10,20,27 and 34 days.
+#variable definition#
+
+In the first part of the study, after some descriptive statistics, we fitted a classical mixed model. We compared the fitted models using a transfomed outcome variable and one without transformations. We analyzed the possible interactions and made some conclusions on which group is more likely to experince weight loss.
+In the second part we decided to use longitudianl models, in order to capture and model in a better way the time dependecy structure of the data. #add for second part smthg @Ilse
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include = FALSE}
+#install.packages("lme")
+#install.packages("lme4")
+#install.packages("lmerTest")
+library(tidyverse)
+library("lmerTest")
+library("lme4")
+library("pbkrtest")
+#library("lmer")
+
+data <- read.delim("Data/Data_Chickens.txt", sep = "")
+```
+
+
+The first step we took was to fit a simple classical mixed model. We introduced the following variables as fixed effects: Department, Group and Time. The variable Pen is introduced as random effect, since we assume that there is a certain dependency structure between diseased chicken in the same pen. The variable ID was also introduced as a random effect, and it represents the random chicken effect since repeated measurements on the same chicken are obviously dependent. 
+For the variable Time we used a second order polynomial. Higher order polynomial give the approximately the same result, thus we choose the second order polynomial to keep the model as simple as possible, as we can see below.
+
+Initially, we did not apply transformations to the outcome variable and we did not consider interactions.
+
+```{r}
+
+
+
+#### Set up ####
+
+
+data$Group<- as.factor(data$Group)
+data$Time <- as.numeric(data$Time)
+time_try <- as.factor(data$Time)
+data$Department <- as.factor(data$Department)
+data$Pen <- as.factor(data$Pen)
+data$ID <-as.factor(data$ID)
+
+
+
+ggplot(data, aes(Time, Weight_change)) + 
+  geom_point() + 
+  geom_smooth(method='lm',formula=y~poly(x,1), col = "blue", se = F, show.legend = T) +
+  geom_smooth(method='lm',formula=y~poly(x,2), col = "black", se = F, show.legend = T)+
+  geom_smooth(method='lm',formula=y~poly(x,3), col = "green", se = F, show.legend =T) +
+  xlab("Time") +
+ylab("Weight Change") + 
+ggtitle("Relation between Weight Change and Time" ) 
+
+
+  
+  
+
+
+
+```
+
+
+The results of the aforementioned model are shown below. The model was fitted using REML due to the fact that we have unbalanced data. The tests carried out on the parameters of the model are all significant (considering an $alpha$ = 0.05) expect for the factor Department 34. Having a look at the coefficients we can see that we expect the biggest reduction in weight change for chickens that are in department 23 and part of group 2. Already from this very simple classical mixed model we could think that chickens in Group 2 and Department 23 are more likely to experience weight loss, thus suggesting to take in great consideration this very department and group when deciding to spread MAS disease. 
+
+
+
+
+
+```{r}
+#MODEL WITHOUT LOG TRANSFORMATION 
+
+
+mod_poly <- lmer(Weight_change ~ Department + Group + poly(Time,2) + (1|Pen) + (1|ID), data = data)
+summary(mod_poly)
+
+
+#mod_poly_inter <- lmer(Weight_change ~ Department + Group + poly(Time,2) + (1|Pen) + (1|ID) + poly(Time,2)*Group  , data = data)
+#summary(mod_poly_inter) failed to converge 
+
+
+
+
+```
+
+From the plot of the residuals against fitted values we can see that there is a pattern in the residuals. When comparing the sample quantiles to the theoretical quantiles of a standardized normal distributions we can see how the sample quantiles start to diverge from the theoretical ones. These plots suggest that we have to transform the outcome variable in a certain way, since some of the hypothesis on which linear models are build, residulas normally distributed and constant variance, are not totaly respected.
+We can also see the dependency from time in the residuals, each batch refers to the 5 different time points (day:3,10,20,27,34)
+
+
+```{r}
+
+plot(mod_poly)# from the residual plot we can see that the variance is not constant,
+#thus the hypothesis on which the LMM is based on are not respected.
+
+
+qqnorm(summary(mod_poly)$residuals)
+summary(mod_poly)
+
+qqline(summary(mod_poly)$residuals, col = "red")
+# the quantile plot shows how the residulas quantiles should be closer to the thoeretical ones of a normal distribution manly on the right tail.
+```
+
+
+The solution to fix the problem regarding heteroscedasticity is to transform the outcome variable.
+We decided to fit a model with the logarthim transformation of the outcome variable. We choose the logartithm since there is a postive skwness in the distribution of the weight change and also because it keeps the interpretation of the regression coefficients relatively simple.
+
+Below is shown the histogram for the non-transformed outcome variable and the transformed one (the distribution of Weight Change is differentiated per time point).
+
+We can now see how the Weight Change variable resembles much more a normal distribution.
+
+```{r}
+
+#HISTOGRAMS FOR RESPONSE W AND W/O LOG
+
+
+## HIST W/O LOG 
+par(mfrow=c(1,2))
+
+ggplot(data,aes(data$Weight_change, col = time_try)) + 
+  geom_histogram() + 
+  xlab("Weight Change") + 
+  ylab("Frequency") + facet_grid(~data$Time)
+
+## HIST W/LOG 
+
+ggplot(data,aes(log(data$Weight_change), col = time_try)) + 
+  geom_histogram() + 
+  xlab("Weight Change") + 
+  ylab("Frequency") + facet_grid(~data$Time)
+
+
+# 3,7,10,27,34
+```
+
+With this in mind, we decided to fit a model with the logarithm transformation of the outcome variable.
+We then added the interaction between time and group because it was the only interaction that resulted significant and that might make sense from a logical point of view.
+The results are shown below.
+
+
+```{r}
+
+#MODEL WITH LOG TRANSFORMATION 
+
+mod_poly_l <- lmer(log(Weight_change) ~ Department + Group + poly(Time,2) + (1|Pen) + (1|ID), data = data)
+
+summary(mod_poly_l)
+
+
+mod_poly_inter_l <- lmer(log(Weight_change) ~ Department + Group + poly(Time,2) + (1|Pen) + (1|ID) + poly(Time,2)*Group , data = data)
+summary(mod_poly_inter_l)
+#the only interaction that makes sense and is significant is the one involving time and group
+
+
+
+
+```
+
+
+
+Considering the logarithm transformation we expect more accurate results. The results abtained are similar as the ones obtained by fitting the model without logarithm. Thus, higher weight loss for chickens in Department 23 and in Group 2. 
+
+The plot of the residuals looks much better now, after applying the transformation. The same can be said when comparing with the thoeretcial quantiles.However, we can still notice a pattern related to the time( even though less accentuated).
+
+
+
+```{r}
+
+plot(mod_poly_inter_l)
+
+qqnorm(summary(mod_poly_inter_l)$residuals)
+qqline(summary(mod_poly)$residuals, col = "red")
+
+```
+
+
+We used the Kenward Roger F-test to find out if the interaction between group and time is significant
+
+```{r}
+
+# KENWARD F-TEST FOR TESTING INTERACTION TIME GROUP
+
+#install.packages("pbkrtest")
+
+
+interaction_test <- KRmodcomp(mod_poly_l,mod_poly_inter_l)
+# the interaction is significant 
+
+
+
+
+```
+
+Given a significant interaction,we decided to compare the mean differences between the two groups at different time levels. To do so we used a t-test with Satterthwaite's approximation to calulate the (broken) degrees of freedom of the test's statistic distribution. We considered the values of Time = 3 and Time = 34.
+
+
+```{r}
+#testing for difference for group means at time 34.
+data_time_test_34 <- data %>% filter(Time ==34)
+
+data_time_test_3 <- data %>% filter(Time ==3)
+
+t.test(data_time_test_34$Weight_change ~ data_time_test_34$Group, paired = F)  #significant difference
+
+t.test(data_time_test_3$Weight_change ~ data_time_test_3$Group, paired = F)  #significant but t statistic smaller 
+#than the one for time =34
+
+
+```
+The more the days the bigger the difference between the two groups. What was found in the previous models is confirmed again by the test, i.e. we expect a bigger weight decrease for chikens in group 2. (the bigger the amount of time from when the disease was injected the bigger the mean loss of weight between the two groups)
+
+
+
+
+
+The following plots show the weight change plotted against time for every animal. The transformation affects the variance at each time point, i.e it gets constant(or close to being it). 
+For what concerns the impact of time on the model and the dependency structure of the data from it, we thought of a better model to analyze this dataset. Longitudinal models can be very handy in this case. These very models are helpful to study changes of time and to separate cross-sectional effect from longitudinal effects. In longitudinal models the correlation structure between repeated measurments is modelled via the correlation matrix
+In the second part of the case study we analyzed different longitudinal models in order to get a better idea of time effect on weight change, the second plot, for example, might suggest the use of a random intercept model.
+
+
+
+```{r}
+ # Set up for plots
+theme <- theme(axis.text=element_text(size=20),
+               axis.title=element_text(size=22),
+               plot.title = element_text(size = 22),
+               strip.text = element_text(size = 20))
+
+
+plot_non_trans <- ggplot2::ggplot(data = data, aes(x = Time, y = Weight_change, col = ID)) +
+  geom_point(size = 4) + geom_line() + theme(legend.position="none") +
+  xlab("Time (days)") + ylab("Weight change (gr)") + theme +
+  xlim(c(0,35))
+
+plot(plot_non_trans)
+
+
+plot_trans <- ggplot2::ggplot(data = data, aes(x = Time, y = log(Weight_change), col = ID)) +
+  geom_point(size = 4) + geom_line() + theme(legend.position="none") +
+  xlab("Time (days)") + ylab("Weight change (gr)") + theme +
+  xlim(c(0,35))
+
+plot(plot_trans)
+
+
+```
+
+
+
+
+
+
+
+
+

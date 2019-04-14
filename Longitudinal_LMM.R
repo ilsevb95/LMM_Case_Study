@@ -10,11 +10,22 @@ library(MASS)
 library(nlme)
 library(tidyverse)
 library(emmeans)
+library(ggplot2)
+library(lattice)
+library(xtable)
 
-#### Load in data ###
 data <- read.delim("Data/Data_Chickens.txt", sep = "")
-data_summ <- read.csv("Data/Summary_statisticsV2.0_2019-04-10.csv", sep = ",",
-                      header = T)
+
+###### Settings data plots #########
+theme <-  theme(panel.background = 
+                  element_rect(fill = "lightgrey", colour = "white", size = 4),
+              axis.text=element_text(size=20),
+              axis.title=element_text(size=22),
+              plot.title = element_text(size = 22),
+              strip.text = element_text(size = 20),
+              legend.position="bottom",
+              legend.text=element_text(size=20),
+              legend.title=element_blank()) 
 
 #### Set up ####
 summary(data)
@@ -42,7 +53,13 @@ summary(data)
 
 #### Comparing fixed effects ####
 #### Minimal model ####
-# Start with only Time and Group as fixed effects. Make sure both are
+# Start with only Time and Group as fixed effects.
+# Fit response with and without a transformation 
+# log transformation results in better fit -> amount of var explained by random intercept bigger
+lmm_min_log <- lme(log(Weight_change) ~ Time + Group, 
+               random = ~1|ID, method = "ML",data = data)
+summary(lmm_min_log)
+
 lmm_min <- lme(Weight_change ~ Time + Group, 
                random = ~1|ID, method = "ML",data = data)
 summary(lmm_min)
@@ -50,11 +67,11 @@ summary(lmm_min)
 #### Intermediate models ####
 # Add department
 # Add interaction Time and groups
-lmm_int <- lme(Weight_change ~ Time + Group + Department_factor, 
+lmm_int <- lme(log(Weight_change) ~ Time + Group + Department_factor, 
                random = ~1|ID, method = "ML",data = data)
 summary(lmm_int)
 
-lmm_int2 <- lme(Weight_change ~ Time + Group + Time:Group, 
+lmm_int2 <- lme(log(Weight_change) ~ Time + Group + Time:Group, 
                random = ~1|ID, method = "ML",data = data)
 summary(lmm_int2)
 
@@ -64,7 +81,7 @@ anova(lmm_min, lmm_int)
 anova(lmm_min, lmm_int2)
 
 #### Maximum model ####
-lmm_max <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_max <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                 random = ~1|ID, method = "ML",data = data)
 summary(lmm_max)
 
@@ -76,8 +93,7 @@ anova(lmm_int2, lmm_max)
 
 # We add the normalized residuals to the data
 data <- data %>%
-  mutate(Norm_resid_max = resid(lmm_max, type = "n"), 
-         Norm_resid_int = resid(lmm_int, type = "n")) 
+  mutate(Norm_resid_max = resid(lmm_max, type = "n"))
 
 
 
@@ -90,24 +106,23 @@ data <- data %>%
 
 
 # Homogeneity of variance check
-pd <- position_dodge(0.6)
+pd <- position_dodge(0.8)
 
-ggplot2::ggplot(data = data, aes(x = Time, y = Norm_resid_max)) + 
+p1 <- ggplot2::ggplot(data = data, aes(x = Time, y = Norm_resid_max)) + 
   geom_point(position = pd, aes(col = Department_factor), size = 4) + 
-  ylab("Normalized residuals") + 
+  ylab("Normalized residuals") + theme + 
   facet_grid(~Group)
 
+plot(p1)
 
-data$Time <- as.factor(data$Time)
-plot(data$Norm_resid_max, col = data$Time) 
-  legend(x = 1, col = c("red", "blue", "green", "yellow", "black"))
-
-ggplot2::ggplot(data = data, aes(x = Time, y = Norm_resid_max)) + geom_point(aes(col = Time))
+# black, red, green, blue and light blue
+par(mfrow = c(1,1))
+plot(data$Norm_resid_max, col = data$Time_factor, 
+             ylab = "Normalized residuals") 
 
 
 # Check normal distribution
-qqPlot(resid(lmm_max, type = "n"), ylab = "Normalized residuals") 
-qqnorm(lmm_max, ~ resid(., type = "n"), abline = c(0, 1))
+plot(qqnorm(lmm_max, ~ resid(., type = "n"), abline = c(0, 1)))
 
 
 # Check influence of outliers
@@ -120,7 +135,7 @@ plot(cooksd, pch="*", cex=2) +
        col="blue", pos = 2)
 
 # Have closer look at the most influencial points
-data[c(24,529),] 
+data[c(24,529, 525),] 
 
 
 
@@ -128,15 +143,28 @@ data[c(24,529),]
 #### Adding random effects ####
 ### Random intercept only ####
 # Note: method = REML
-lmm_max_r1 <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
-               random = ~1|ID, 
-               method = "REML",data = data)
+lmm_max_r1 <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
+                   random = ~1|ID, method= "REML",data = data)
+
 summary(lmm_max_r1)
+xtable(coef(summary(lmm_max_r1)))
 
 
+
+
+#Visualize random intercept
+rr1 <- ranef(lmm_max_r1, condVar = TRUE)
+dotplot(rr1, scales = list(x = list(relation = 'free')))
+
+
+# Have a look at the Var Covar matrix
 getVarCov(lmm_max_r1, individual = 20, type = "conditional")
 getVarCov(lmm_max_r1, individual = 20, type = "marginal")
-getVarCov(lmm_max_r1)
+getVarCov(lmm_max_r1) # Var explained by random intercept
+
+getVarCov(lmm_max, individual = 20, type = "conditional")
+
+
 
 #### Random intercept and slope together ####
 # Adding random intercept and slope together is not possible
@@ -147,9 +175,19 @@ getVarCov(lmm_max_r1)
 lmm_max_r2.1 <- nlme::lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
                   random = ~1+Time|ID, method = "REML",data = data)
 
-lmm_max_r2.2 <- lme4::lmer(Weight_change ~ Time + Group + Department_factor + Time:Group + 
+lmm_max_r2.2 <- lme4::lmer(log(Weight_change) ~ Time + Group + Department_factor + 
+                             Time:Group + 
                              (1+Time|ID), data = data, REML = T)
 summary(lmm_max_r2.2)
+
+# Visualize random effects
+plot(ranef(lmm_max_r1, condVar = T))
+dotplot(ranef(lmm_max_r2.2, condVar = T))
+
+
+#### Test 1 and 2 random effects: mixture of chi-squared ####
+LRT <- 2*(logLik(lmm_max_r1) - logLik(lmm_max_r2.2))
+0.5*pchisq(LRT, 1,lower.tail = F) + 0.5*pchisq(LRT, 2,lower.tail = F)
 
 
 #### Random intercept and slope added independently ####
@@ -196,7 +234,7 @@ getVarCov(lmm_max_r1, individual = 20) # explained var of random intercept
 
 ##### General: unstructured correlation #
 # Doesn't work -> no convergence
-lmm_max_unstr <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_max_unstr <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                   random = ~1|ID, 
                   correlation = corSymm(form = ~ 1 | ID),
                   method = "REML",data = data)
@@ -207,7 +245,7 @@ summary(lmm_max_unstr)
 
 ##### Compound symmetry correlation #
 # same correlation and var over all timepoints
-lmm_max_cs <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_max_cs <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
                      correlation = corCompSymm(form = ~ 1 | ID),
@@ -217,7 +255,7 @@ summary(lmm_max_cs)
 
 
 ##### ARMA correlation #
-lmm_max_arma <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_max_arma <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
                      correlation = corARMA(form = ~ 1 | ID, p = 4, q = 1),
@@ -228,7 +266,7 @@ summary(lmm_max_arma)
 
 ##### AR1 correlation #
 # Pairwse Correlations decrease with time -> most likely for a clinical trial
-lmm_max_ar <- lme(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_max_ar <- lme(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                      method = "REML", 
                      random = ~1|ID,
                      correlation = corAR1(form = ~ 1 | ID),
@@ -247,28 +285,32 @@ anova(lmm_max_arma, lmm_max_r1)
 LRT <- 2*(logLik(lmm_max_arma) - logLik(lmm_max_r1))
 pchisq(LRT, 3,lower.tail = T)
 
-getVarCov(lmm_max_arma, individuals = 2, type = "conditional")
-getVarCov(lmm_max_r1, individuals = 2, type = "conditional")
+
+# Have look at var-covar matrix
+getVarCov(lmm_max_arma, individuals = 20, type = "conditional")
+getVarCov(lmm_max_r1, individuals = 20, type = "conditional")
+
 
 
 
 #### Checking dependence ####
-lmm_gls_cs <- gls(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_gls_cs <- gls(log(Weight_change) ~ Time + Group + Department_factor + 
+                    Time:Group, 
                   method = "REML", 
                   correlation = corCompSymm(form = ~ 1 | ID),
                   data = data)
 
 summary(lmm_gls_cs)
 
-lmm_gls <- gls(Weight_change ~ Time + Group + Department_factor + Time:Group, 
+lmm_gls <- gls(log(Weight_change) ~ Time + Group + Department_factor + Time:Group, 
                   method = "REML", 
                   correlation = NULL,
                   data = data)
 
 summary(lmm_gls)
 
-# No significant effect of the correlation structure
-# Conclusion: no dependence of data?
+# significant effect of the correlation structure
+# Conclusion: there is dependence of data over time -> constant var
 anova(lmm_gls, lmm_gls_cs)
 getVarCov(lmm_gls_cs, type = "marginal")
 
@@ -290,9 +332,9 @@ anova(lmm_max_r1, lmm_max_r1_wght)
 #### EMMEANS ####
 # The random intercept model fits best. Next we calculate the estimated marginal means
 # We want to average over the departments -> needs to be numeric
-Model_final <- lme(Weight_change ~ Time + Group + Department + Time:Group, 
+Model_final <- lme(log(Weight_change) ~ Time + Group + Department + Time:Group, 
                   random = ~1|ID, 
-                  
+                  correlation = corARMA(form = ~ 1 | ID, p = 4, q = 1),
                   method = "REML",data = data)
 summary(Model_final)
 
@@ -309,7 +351,9 @@ contr <-  contrast(data_emmeans)
 
 
 #### Find model estimates per timepoint ####
-Model_final2 <- lme(Weight_change ~ Time_factor + Group + Department + Time_factor:Group, 
+Model_final2 <- lme(log(Weight_change) ~ Time_factor + Group + Department + 
+                      Time_factor:Group,
+                    correlation = corARMA(form = ~ 1 | ID, p = 4, q = 1),
                   random = ~1|ID, method = "REML",data = data)
 
 summary(Model_final2)
@@ -327,17 +371,20 @@ df_emmeans2$Time <- as.numeric(as.character(df_emmeans2$Time))
 df_emmeans2$SD <- df_emmeans2$SE * sqrt(162)
 
 # Plot predictions with SD as errorbars
-ggplot2::ggplot(data = df_emmeans2, aes(x = Time, y = prediction)) + 
-  geom_line(position = pd, aes(col = Group), size = 2) + 
-  geom_point(position = pd, aes(shape = Group, col = Group), size = 4) + 
+p2 <- ggplot2::ggplot(data = df_emmeans2, aes(x = Time, y = prediction)) + 
+  geom_line(position = pd, aes(col = Group), size = 1) + 
+  geom_point(position = pd, aes(shape = Group, col = Group), size = 3) + 
   geom_errorbar(position = pd, aes(ymin = prediction - SD, 
                                    ymax = prediction + SD, 
                                    x = Time, col = Group), size = 1, width= 2) +
   scale_color_manual(values = c('blue',  'orange')) +
   ylab("Weight change")
 
-
+plot(p2)
 
 #### Save result summary plots and tables ####
-
+#### Save files and plots ####
+write.table(df_summ, file = paste("Data/Summary_statistics_",Sys.Date(),".csv", 
+                                  sep = ""), row.names=FALSE, na = "", 
+            col.names=T, sep=",")
 #################################### End #######################################
