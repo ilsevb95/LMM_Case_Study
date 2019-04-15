@@ -48,7 +48,15 @@ Initially, we did not apply transformations to the outcome variable and we did n
 
 ```{r}
 
-
+theme <-  theme(panel.background = 
+                  element_rect(fill = "lightgrey", colour = "white", size = 4),
+              axis.text=element_text(size=20),
+              axis.title=element_text(size=22),
+              plot.title = element_text(size = 22),
+              strip.text = element_text(size = 12),
+              legend.position="bottom",
+              legend.text=element_text(size=20),
+              legend.title=element_blank())
 
 #### Set up ####
 
@@ -62,16 +70,19 @@ data$ID <-as.factor(data$ID)
 
 
 
-ggplot(data, aes(Time, Weight_change)) + 
+fit_poly <- ggplot(data, aes(Time, Weight_change)) + 
   geom_point() + 
   geom_smooth(method='lm',formula=y~poly(x,1), col = "blue", se = F, show.legend = T) +
   geom_smooth(method='lm',formula=y~poly(x,2), col = "black", se = F, show.legend = T)+
   geom_smooth(method='lm',formula=y~poly(x,3), col = "green", se = F, show.legend =T) +
   xlab("Time") +
-ylab("Weight Change") + 
-ggtitle("Relation between Weight Change and Time" ) 
+ylab("Weight Change") + theme
 
 
+# SAve plot
+png('Plots/Fit_poly.png', width = 15, height = 7, units = 'in', res = 600)
+plot(fit_poly)
+dev.off()
   
   
 
@@ -107,8 +118,8 @@ We can also see the dependency from time in the residuals, each batch refers to 
 
 
 ```{r}
-
-plot(mod_poly)# from the residual plot we can see that the variance is not constant,
+par(mfrow=c(1,1))
+plot(mod_poly, col = time_try)# from the residual plot we can see that the variance is not constant,
 #thus the hypothesis on which the LMM is based on are not respected.
 
 
@@ -133,20 +144,28 @@ We can now see how the Weight Change variable resembles much more a normal distr
 
 
 ## HIST W/O LOG 
-par(mfrow=c(1,2))
 
-ggplot(data,aes(data$Weight_change, col = time_try)) + 
+
+histo <- ggplot(data = data,aes(Weight_change, col = time_try)) + 
   geom_histogram() + 
   xlab("Weight Change") + 
-  ylab("Frequency") + facet_grid(~data$Time)
+  ylab("Frequency") + facet_grid(~Time) + theme
 
 ## HIST W/LOG 
 
-ggplot(data,aes(log(data$Weight_change), col = time_try)) + 
+histo2 <- ggplot(data,aes(log(Weight_change), col = time_try)) + 
   geom_histogram() + 
   xlab("Weight Change") + 
-  ylab("Frequency") + facet_grid(~data$Time)
+  ylab("Frequency") + facet_grid(~Time) + theme
 
+# Save plots
+png('Plots/Histogram_non_trans.png', width = 15, height = 7, units = 'in', res = 200)
+plot(histo)
+dev.off()
+
+png('Plots/Histogram_trans.png', width = 15, height = 7, units = 'in', res = 200)
+plot(histo2)
+dev.off()
 
 # 3,7,10,27,34
 ```
@@ -187,7 +206,7 @@ The plot of the residuals looks much better now, after applying the transformati
 plot(mod_poly_inter_l)
 
 qqnorm(summary(mod_poly_inter_l)$residuals)
-qqline(summary(mod_poly)$residuals, col = "red")
+qqline(summary(mod_poly_inter_l)$residuals, col = "red")
 
 ```
 
@@ -255,11 +274,19 @@ plot(plot_non_trans)
 
 plot_trans <- ggplot2::ggplot(data = data, aes(x = Time, y = log(Weight_change), col = ID)) +
   geom_point(size = 4) + geom_line() + theme(legend.position="none") +
-  xlab("Time (days)") + ylab("Weight change (gr)") + theme +
+  xlab("Time (days)") + ylab("Weight change (gr)") + theme + facet_grid(~Group) +
   xlim(c(0,35))
 
 plot(plot_trans)
 
+# Save plots
+png('Plots/Weight_Time_profiles.png', width = 15, height = 7, units = 'in', res = 200)
+plot(plot_non_trans)
+dev.off()
+
+png('Plots/Weight_Time_profiles_log.png', width = 15, height = 7, units = 'in', res = 200)
+plot(plot_trans)
+dev.off()
 
 ```
 

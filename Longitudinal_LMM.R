@@ -291,6 +291,29 @@ getVarCov(lmm_max_arma, individuals = 20, type = "conditional")
 getVarCov(lmm_max_r1, individuals = 20, type = "conditional")
 
 
+#### Model diagnostics ####
+# We add the normalized residuals to the data
+data <- data %>%
+  mutate(Norm_resid_final = resid(lmm_max_arma, type = "n"))
+
+
+
+#### Assess the assumptions ####
+# Each model needs to be assessed for:
+#     1. Homogeneity of variance
+#     2. Normal distribution of residuals
+#     3. Infuence of outliers
+
+
+# Homogeneity of variance check
+pd <- position_dodge(0.8)
+
+p2 <- ggplot2::ggplot(data = data, aes(x = Time, y = Norm_resid_final)) + 
+  geom_point(position = pd, aes(col = Department_factor), size = 4) + 
+  ylab("Normalized residuals") + theme + 
+  facet_grid(~Group)
+
+plot(p2)
 
 
 #### Checking dependence ####
@@ -344,6 +367,7 @@ refgrid <-  ref_grid(Model_final)
 refgrid
 df_emmeans = data.frame(summary(refgrid))
 data_emmeans <-  emmeans(refgrid, specs = c('Group', "Time"))
+xtable(data_emmeans)
 
 # Contrast and p-value is calculated between the two groups
 contr <-  contrast(data_emmeans)
@@ -371,20 +395,26 @@ df_emmeans2$Time <- as.numeric(as.character(df_emmeans2$Time))
 df_emmeans2$SD <- df_emmeans2$SE * sqrt(162)
 
 # Plot predictions with SD as errorbars
-p2 <- ggplot2::ggplot(data = df_emmeans2, aes(x = Time, y = prediction)) + 
+p3 <- ggplot2::ggplot(data = df_emmeans2, aes(x = Time, y = prediction)) + 
   geom_line(position = pd, aes(col = Group), size = 1) + 
-  geom_point(position = pd, aes(shape = Group, col = Group), size = 3) + 
+  geom_point(position = pd, aes(shape = Group, col = Group), size = 4) + 
   geom_errorbar(position = pd, aes(ymin = prediction - SD, 
                                    ymax = prediction + SD, 
                                    x = Time, col = Group), size = 1, width= 2) +
-  scale_color_manual(values = c('blue',  'orange')) +
+  scale_color_manual(values = c('blue',  'orange')) + theme + 
   ylab("Weight change")
 
-plot(p2)
+plot(p3)
 
 #### Save result summary plots and tables ####
 #### Save files and plots ####
 write.table(df_summ, file = paste("Data/Summary_statistics_",Sys.Date(),".csv", 
                                   sep = ""), row.names=FALSE, na = "", 
             col.names=T, sep=",")
+
+
+
+png('Plots/Residuals_arma.png', width = 15, height = 7, units = 'in', res = 600)
+plot(p2)
+dev.off()
 #################################### End #######################################

@@ -94,6 +94,6 @@ write.table(df_freq2, file = paste("Data/Frequency_Group_Time_",Sys.Date(),".csv
             col.names=T, sep=",")
 
 
-png('Plots/Weight_Time_profiles.png', width = 15, height = 7, units = 'in', res = 600)
+png('Plots/Weight_Time_profiles.png', width = 15, height = 7, units = 'in', res = 200)
 plot(p1)
 dev.off()
