@@ -366,13 +366,18 @@ summary(Model_final)
 refgrid <-  ref_grid(Model_final)
 refgrid
 df_emmeans = data.frame(summary(refgrid))
+
 data_emmeans <-  emmeans(refgrid, specs = c('Group', "Time"))
 xtable(data_emmeans)
+summary(data_emmeans, infer = TRUE, null = log(35), type = "response")
 
+
+regrid(data_emmeans)
 # Contrast and p-value is calculated between the two groups
 contr <-  contrast(data_emmeans)
 
-
+regrid(contr)
+regrid(df_emmeans)
 
 #### Find model estimates per timepoint ####
 Model_final2 <- lme(log(Weight_change) ~ Time_factor + Group + Department + 
